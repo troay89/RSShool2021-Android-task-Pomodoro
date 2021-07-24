@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleObserver
 import androidx.lifecycle.OnLifecycleEvent
@@ -14,18 +15,21 @@ import com.example.rsshool2021_android_task_pomodoro.databinding.ActivityMainBin
 import kotlin.system.exitProcess
 
 
+
 class MainActivity : AppCompatActivity(), StopwatchListener, LifecycleObserver {
 
     private lateinit var binding: ActivityMainBinding
+    private var back_pressed: Long = 0
 
-    private val stopwatchAdapter = StopwatchAdapter(this)
     private val stopwatches = mutableListOf<Stopwatch>()
+    private val stopwatchAdapter = StopwatchAdapter(this, stopwatches)
     private var nextId = 0
     var startTimerLong = 0L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         ProcessLifecycleOwner.get().lifecycle.addObserver(this)
+        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
 
         if (savedInstanceState != null) {
             nextId = savedInstanceState.getInt(NEXT_ID)
@@ -36,7 +40,8 @@ class MainActivity : AppCompatActivity(), StopwatchListener, LifecycleObserver {
                 val currentMs = savedInstanceState.getLong("$MS$i")
                 val progress = savedInstanceState.getLong("$PROGRESS$i")
                 val isStarted = savedInstanceState.getBoolean("$START$i")
-                stopwatches.add(Stopwatch(id, initial, currentMs, progress, isStarted))
+                val color = savedInstanceState.getInt("$COLOR$i")
+                stopwatches.add(Stopwatch(id, initial, currentMs, progress, isStarted, color))
             }
             stopwatchAdapter.submitList(stopwatches.toList())
         }
@@ -46,21 +51,26 @@ class MainActivity : AppCompatActivity(), StopwatchListener, LifecycleObserver {
 
         binding.recycler.apply {
             layoutManager = LinearLayoutManager(context)
-//            adapter?.setHasStableIds(true)
-//            stopwatchAdapter.setHasStableIds(true)
+            stopwatchAdapter.setHasStableIds(true)
             adapter = stopwatchAdapter
         }
-
-//        binding.recycler.recycledViewPool.setMaxRecycledViews(1, 0)
-
-        stopwatchAdapter.submitList(stopwatches.toList())
 
         binding.addNewStopwatchButton.setOnClickListener {
             val startTimer = binding.quantity.text.toString()
             if (startTimer.isNotBlank() && startTimer.toLong() < 1441) {
-                startTimerLong = startTimer.toLong() * 1000L
-                stopwatches.add(Stopwatch(nextId++, startTimerLong, startTimerLong, 0, false))
+                startTimerLong = startTimer.toLong() * 60000L
+                stopwatches.add(
+                    Stopwatch(
+                        nextId++,
+                        startTimerLong,
+                        startTimerLong,
+                        0,
+                        false,
+                        R.color.white
+                    )
+                )
                 stopwatchAdapter.submitList(stopwatches.toList())
+
             } else Toast.makeText(this, "Введенны не коректные данные!!!", Toast.LENGTH_LONG).show()
         }
     }
@@ -75,6 +85,7 @@ class MainActivity : AppCompatActivity(), StopwatchListener, LifecycleObserver {
             outState.putLong("$MS$i", stopwatches[i].currentMs)
             outState.putLong("$PROGRESS$i", stopwatches[i].progress)
             outState.putBoolean("$START$i", stopwatches[i].isStarted)
+            outState.putInt("$COLOR$i", stopwatches[i].color)
         }
     }
 
@@ -82,12 +93,8 @@ class MainActivity : AppCompatActivity(), StopwatchListener, LifecycleObserver {
         changeStopwatch(id, null, null, null, true)
     }
 
-    override fun stop(id: Int, initial: Long,  currentMs: Long, progress: Long) {
+    override fun stop(id: Int, initial: Long, currentMs: Long, progress: Long, color: Int) {
         changeStopwatch(id, initial, currentMs, progress, false)
-    }
-
-    override fun reset(id: Int) {
-        changeStopwatch(id, 0L, 0L, 0L, false)
     }
 
     override fun delete(id: Int) {
@@ -100,38 +107,36 @@ class MainActivity : AppCompatActivity(), StopwatchListener, LifecycleObserver {
         initial: Long?,
         currentMs: Long?,
         progress: Long?,
-        isStarted: Boolean
+        isStarted: Boolean,
     ) {
         val newTimers = mutableListOf<Stopwatch>()
         stopwatches.forEach {
             if (it.id != id) {
-                Log.d("changeStopwatch", "я здесь")
                 newTimers.add(
                     Stopwatch(
                         it.id,
                         it.initial,
                         it.currentMs,
                         it.progress,
-                        isStarted = false
+                        isStarted = false,
+                        it.color
                     )
                 )
-            }
-            else
+            } else
                 if (it.id == id) {
-                newTimers.add(
-                    Stopwatch(
-                        it.id,
-                        initial ?: it.initial,
-                        currentMs ?: it.currentMs,
-                        progress ?: it.progress,
-                        isStarted
+                    newTimers.add(
+                        Stopwatch(
+                            it.id,
+                            initial ?: it.initial,
+                            currentMs ?: it.currentMs,
+                            progress ?: it.progress,
+                            isStarted,
+                            it.color
+                        )
                     )
-                )
-            }
-            else {
-                Log.d("changeStopwatch", "я тут")
-                newTimers.add(it)
-            }
+                } else {
+                    newTimers.add(it)
+                }
         }
 
         stopwatchAdapter.submitList(newTimers)
@@ -165,11 +170,18 @@ class MainActivity : AppCompatActivity(), StopwatchListener, LifecycleObserver {
         private const val INITIAL = "INITIAL"
         private const val PROGRESS = "PROGRESS"
         private const val START = "START"
+        private const val COLOR = "COLOR"
     }
 
     override fun onBackPressed() {
-        super.onBackPressed()
-        exitProcess(0)
+        if (back_pressed + 2000 > System.currentTimeMillis()) {
+
+            super.onBackPressed()
+            exitProcess(0)
+        } else {
+            Toast.makeText(baseContext, "Нажмите дважды, чтобы выйти!", Toast.LENGTH_SHORT).show()
+        }
+        back_pressed = System.currentTimeMillis()
     }
 
 }

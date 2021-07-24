@@ -75,7 +75,7 @@ class ForegroundService : Service() {
 
         var remainingTime = 0L
         job = GlobalScope.launch(Dispatchers.Main) {
-            while (remainingTime != startTime) {
+            while (remainingTime != startTime || startTime != -1L) {
                 remainingTime += 1000
                 notificationManager?.notify(
                     NOTIFICATION_ID,
